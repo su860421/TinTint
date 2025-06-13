@@ -1,37 +1,53 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Contracts\Services\ProductServiceInterface;
-use Illuminate\Http\Request;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProductController extends Controller
 {
-    /**
-     * @var ProductServiceInterface
-     */
-    protected $productService;
-
-    public function __construct(ProductServiceInterface $productService)
-    {
-        $this->productService = $productService;
+    public function __construct(
+        private readonly ProductServiceInterface $productService
+    ) {
     }
 
-    public function index()
+    public function index(): JsonResponse
     {
-        $products = $this->productService->getAvailableProducts();
-        return response()->json($products);
-    }
-
-    public function show($id)
-    {
-        $product = $this->productService->getProductWithStock($id);
-        
-        if (!$product) {
-            return response()->json(['message' => '商品不存在'], 404);
+        try {
+            $products = $this->productService->getAvailableProducts();
+            return response()->json($products);
+        } catch (Exception $e) {
+            return response()->json(
+                ['message' => $e->getMessage()],
+                Response::HTTP_INTERNAL_SERVER_ERROR
+            );
         }
+    }
 
-        return response()->json($product);
+    public function show(string $id): JsonResponse
+    {
+        try {
+            $product = $this->productService->getProductWithStock($id);
+            
+            if (!$product) {
+                return response()->json(
+                    ['message' => __('messages.products.not_found')],
+                    Response::HTTP_NOT_FOUND
+                );
+            }
+
+            return response()->json($product);
+        } catch (Exception $e) {
+            return response()->json(
+                ['message' => $e->getMessage()],
+                Response::HTTP_INTERNAL_SERVER_ERROR
+            );
+        }
     }
 }

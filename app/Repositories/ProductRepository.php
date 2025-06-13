@@ -13,7 +13,7 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
         parent::__construct($model);
     }
 
-    public function updateStock(int $id, int $quantity)
+    public function updateStock(string $id, int $quantity)
     {
         return DB::transaction(function () use ($id, $quantity) {
             $product = $this->findWithStock($id);
@@ -30,7 +30,7 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
         });
     }
 
-    public function checkStock(int $id, int $quantity): bool
+    public function checkStock(string $id, int $quantity): bool
     {
         $product = $this->findWithStock($id);
         if (!$product) {
@@ -45,7 +45,7 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
         return $this->model->where('stock', '>', 0)->get();
     }
 
-    public function findWithStock(int $id)
+    public function findWithStock(string $id)
     {
         return $this->model->select('id', 'name', 'price', 'stock')->find($id);
     }

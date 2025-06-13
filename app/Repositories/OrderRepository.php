@@ -14,58 +14,46 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
         parent::__construct($model);
     }
 
-    public function getWithDetails(int $id)
+    public function getWithDetails(string $id)
     {
-        return $this->model->with(['user', 'orderItems.product'])->find($id);
-    }
-
-    public function getWithPaginate(int $perPage = 20)
-    {
-        return $this->model->with(['user', 'orderItems.product'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
-    }
-
-    public function updateStatus(int $id, OrderStatusEnum $status)
-    {
-        $order = $this->find($id);
-        if (!$order) {
-            return false;
-        }
-
-        return $order->update(['status' => $status]);
-    }
-
-    public function getTotalOrders()
-    {
-        return $this->model->count();
-    }
-
-    public function getTotalAmount()
-    {
-        return $this->model->sum('total_amount');
-    }
-
-    public function getTodayOrders()
-    {
-        return $this->model->whereDate('created_at', today())->count();
-    }
-
-    public function getTodayAmount()
-    {
-        return $this->model->whereDate('created_at', today())->sum('total_amount');
+        return $this->model
+            ->with(['user', 'orderItems.product'])
+            ->find($id);
     }
 
     public function createWithItems(array $orderData, array $items)
     {
         return DB::transaction(function () use ($orderData, $items) {
             $order = $this->create($orderData);
-            
-            foreach ($items as $item) {
-                $order->orderItems()->create($item);
-            }
-            
-            return $order->load(['orderItems.product', 'user']);
+            $order->orderItems()->createMany($items);
+            return $this->getWithDetails($order->id);
         });
+    }
+
+    public function updateStatus(string $id, OrderStatusEnum $status): bool
+    {
+        return (bool) $this->model->where('id', $id)
+            ->update(['status' => $status]);
+    }
+
+    public function getTotalOrders(): int
+    {
+        return $this->model->count();
+    }
+
+    public function getTotalAmount(): float
+    {
+        return (float) $this->model->sum('total_amount');
+    }
+
+    public function getTodayOrders(): int
+    {
+        return $this->model->whereDate('created_at', today())->count();
+    }
+
+    public function getTodayAmount(): float
+    {
+        return (float) $this->model->whereDate('created_at', today())
+            ->sum('total_amount');
     }
 }

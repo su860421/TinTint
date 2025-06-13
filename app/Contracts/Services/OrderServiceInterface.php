@@ -6,17 +6,35 @@ use App\Enums\OrderStatusEnum;
 
 interface OrderServiceInterface extends BaseServiceInterface
 {
-    public function getOrderWithDetails(int $id);
-    public function createOrder(array $orderData);
-    public function updateOrderStatus(int $id, OrderStatusEnum $status);
-    public function getOrderStats(): array;
-    
     /**
-     * 驗證訂單項目
+     * Get order with details
      *
-     * @param array $items 訂單項目數組
-     * @return bool
-     * @throws \Exception 如果庫存不足
+     * @param string $orderId
+     * @return mixed
      */
-    public function validateOrderItems(array $items): bool;
+    public function getOrderWithDetails(string $orderId);
+
+    /**
+     * Create a new order
+     *
+     * @param array $data
+     * @return mixed
+     */
+    public function createOrder(array $data);
+
+    /**
+     * Update order status
+     *
+     * @param string $orderId
+     * @param OrderStatusEnum $status
+     * @return bool
+     */
+    public function updateOrderStatus(string $orderId, OrderStatusEnum $status): bool;
+
+    /**
+     * Get order statistics
+     *
+     * @return array
+     */
+    public function getOrderStats(): array;
 }

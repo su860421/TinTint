@@ -4,94 +4,74 @@ namespace App\Services;
 
 use App\Contracts\Services\OrderServiceInterface;
 use App\Contracts\Repositories\OrderRepositoryInterface;
-use App\Contracts\Services\ProductServiceInterface;
 use App\Enums\OrderStatusEnum;
-use Illuminate\Support\Facades\DB;
+use Exception;
 
 class OrderService extends BaseService implements OrderServiceInterface
 {
-    /**
-     * @var OrderRepositoryInterface
-     */
-    protected $repository;
-
-    /**
-     * @var ProductServiceInterface
-     */
-    protected $productService;
-
     public function __construct(
-        OrderRepositoryInterface $repository,
-        ProductServiceInterface $productService
+        protected OrderRepositoryInterface $repository
     ) {
         parent::__construct($repository);
-        $this->repository = $repository;
-        $this->productService = $productService;
     }
 
-    public function getOrderWithDetails(int $id)
+    /**
+     * Get order with details
+     *
+     * @param string $orderId
+     * @return mixed
+     */
+    public function getOrderWithDetails(string $orderId)
     {
-        return $this->repository->getWithDetails($id);
+        return $this->repository->getWithDetails($orderId);
     }
 
-    public function createOrder(array $orderData)
+    /**
+     * Create a new order
+     *
+     * @param array $data
+     * @return mixed
+     * @throws Exception
+     */
+    public function createOrder(array $data)
     {
-        return DB::transaction(function () use ($orderData) {
-            // 驗證庫存
-            $this->validateOrderItems($orderData['items']);
-            
-            $totalAmount = 0;
-            $items = [];
+        if (empty($data['items'])) {
+            throw new Exception('Order items are required');
+        }
 
-            // 處理訂單項目
-            foreach ($orderData['items'] as $item) {
-                $product = $this->productService->getProductWithStock($item['product_id']);
-                
-                $subtotal = $product->price * $item['quantity'];
-                $totalAmount += $subtotal;
+        $orderData = [
+            'user_id' => $data['user_id'],
+            'status' => OrderStatusEnum::PENDING,
+            'total_amount' => 0,
+        ];
 
-                $items[] = [
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $product->price,
-                    'subtotal' => $subtotal
-                ];
-
-                // 更新庫存
-                $this->productService->updateProductStock($product->id, -$item['quantity']);
-            }
-
-            // 創建訂單
-            return $this->repository->createWithItems([
-                'user_id' => $orderData['user_id'],
-                'total_amount' => $totalAmount,
-                'status' => OrderStatusEnum::PENDING
-            ], $items);
-        });
+        return $this->repository->createWithItems($orderData, $data['items']);
     }
 
-    public function updateOrderStatus(int $id, OrderStatusEnum $status)
+    /**
+     * Update order status
+     *
+     * @param string $orderId
+     * @param OrderStatusEnum $status
+     * @return bool
+     */
+    public function updateOrderStatus(string $orderId, OrderStatusEnum $status): bool
     {
-        return $this->repository->updateStatus($id, $status);
+        return $this->repository->updateStatus($orderId, $status);
     }
 
+    /**
+     * Get order statistics
+     *
+     * @return array
+     */
     public function getOrderStats(): array
     {
         return [
             'total_orders' => $this->repository->getTotalOrders(),
             'total_amount' => $this->repository->getTotalAmount(),
             'today_orders' => $this->repository->getTodayOrders(),
-            'today_amount' => $this->repository->getTodayAmount()
+            'today_amount' => $this->repository->getTodayAmount(),
         ];
-    }
-
-    public function validateOrderItems(array $items): bool
-    {
-        foreach ($items as $item) {
-            if (!$this->productService->checkProductStock($item['product_id'], $item['quantity'])) {
-                throw new \Exception("商品庫存不足");
-            }
-        }
-        return true;
     }
 }

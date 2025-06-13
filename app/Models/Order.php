@@ -2,35 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\HasUlid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
-    use HasFactory;
+    use HasUlid;
 
-    protected $fillable = ['user_id', 'order_number', 'status', 'total_amount'];
+    protected $fillable = [
+        'user_id',
+        'order_number',
+        'status',
+        'total_amount',
+    ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'status' => 'string',
     ];
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function orderItems()
+    public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
-    }
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($order) {
-            $order->order_number = 'ORD-' . date('YmdHis') . '-' . rand(1000, 9999);
-        });
     }
 }

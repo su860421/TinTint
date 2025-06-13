@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Contracts\Services\BaseServiceInterface;
 use App\Contracts\Repositories\BaseRepositoryInterface;
 
-abstract class BaseService implements BaseServiceInterface
+class BaseService implements BaseServiceInterface
 {
     /**
      * @var BaseRepositoryInterface
@@ -31,10 +31,10 @@ abstract class BaseService implements BaseServiceInterface
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @return mixed
      */
-    public function getById(int $id)
+    public function getById(string $id)
     {
         return $this->repository->find($id);
     }
@@ -49,20 +49,20 @@ abstract class BaseService implements BaseServiceInterface
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @param array $data
      * @return mixed
      */
-    public function update(int $id, array $data)
+    public function update(string $id, array $data)
     {
         return $this->repository->update($id, $data);
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @return mixed
      */
-    public function delete(int $id)
+    public function delete(string $id)
     {
         return $this->repository->delete($id);
     }

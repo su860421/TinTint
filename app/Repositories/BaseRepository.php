@@ -33,10 +33,10 @@ abstract class BaseRepository implements BaseRepositoryInterface
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @return Model|null
      */
-    public function find(int $id)
+    public function find(string $id)
     {
         return $this->model->find($id);
     }
@@ -51,11 +51,11 @@ abstract class BaseRepository implements BaseRepositoryInterface
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @param array $attributes
      * @return bool
      */
-    public function update(int $id, array $attributes)
+    public function update(string $id, array $attributes)
     {
         $instance = $this->find($id);
         if (!$instance) {
@@ -65,10 +65,10 @@ abstract class BaseRepository implements BaseRepositoryInterface
     }
 
     /**
-     * @param int $id
+     * @param string $id
      * @return bool|null
      */
-    public function delete(int $id)
+    public function delete(string $id)
     {
         $instance = $this->find($id);
         if (!$instance) {

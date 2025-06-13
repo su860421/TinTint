@@ -4,38 +4,51 @@ namespace App\Services;
 
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Models\Product;
 
 class ProductService extends BaseService implements ProductServiceInterface
 {
-    /**
-     * @var ProductRepositoryInterface
-     */
-    protected $repository;
-
-    public function __construct(ProductRepositoryInterface $repository)
-    {
+    public function __construct(
+        protected ProductRepositoryInterface $repository
+    ) {
         parent::__construct($repository);
-        $this->repository = $repository;
     }
 
     /**
-     * {@inheritDoc}
+     * 檢查產品庫存
      */
-    public function checkProductStock(int $productId, int $quantity): bool
+    public function checkProductStock(string $productId, int $quantity): bool
     {
-        return $this->repository->checkStock($productId, $quantity);
+        /** @var Product|null $product */
+        $product = $this->repository->find($productId);
+        if (!$product) {
+            return false;
+        }
+
+        return $product->hasEnoughStock($quantity);
     }
 
     /**
-     * {@inheritDoc}
+     * 更新產品庫存
      */
-    public function updateProductStock(int $productId, int $quantity): bool
+    public function updateProductStock(string $productId, int $quantity): bool
     {
-        return $this->repository->updateStock($productId, $quantity);
+        /** @var Product|null $product */
+        $product = $this->repository->find($productId);
+        if (!$product) {
+            return false;
+        }
+
+        if ($quantity < 0) {
+            return $product->decrementStock(abs($quantity));
+        }
+
+        $product->increment('stock', $quantity);
+        return true;
     }
 
     /**
-     * {@inheritDoc}
+     * 獲取所有有庫存的商品
      */
     public function getAvailableProducts()
     {
@@ -43,9 +56,9 @@ class ProductService extends BaseService implements ProductServiceInterface
     }
 
     /**
-     * {@inheritDoc}
+     * 獲取商品及其庫存信息
      */
-    public function getProductWithStock(int $productId)
+    public function getProductWithStock(string $productId)
     {
         return $this->repository->findWithStock($productId);
     }
