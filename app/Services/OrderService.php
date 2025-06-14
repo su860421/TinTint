@@ -67,11 +67,6 @@ class OrderService extends BaseService implements OrderServiceInterface
      */
     public function getOrderStats(): array
     {
-        return [
-            'total_orders' => $this->repository->getTotalOrders(),
-            'total_amount' => $this->repository->getTotalAmount(),
-            'today_orders' => $this->repository->getTodayOrders(),
-            'today_amount' => $this->repository->getTodayAmount(),
-        ];
+        return $this->repository->getStats();
     }
 }

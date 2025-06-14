@@ -41,15 +41,52 @@ class TestDataSeeder extends Seeder
     ];
 
     private array $categories = [
-        '手機', '筆電', '耳機', '服飾', '咖啡', '茶葉', '護膚品', '3C周邊', '食品', '生活用品'
+        '手機',
+        '筆電',
+        '耳機',
+        '服飾',
+        '咖啡',
+        '茶葉',
+        '護膚品',
+        '3C周邊',
+        '食品',
+        '生活用品'
     ];
 
     private array $firstNames = [
-        '張', '李', '王', '陳', '林', '黃', '周', '吳', '徐', '朱', '馬', '胡', '郭', '何', '高'
+        '張',
+        '李',
+        '王',
+        '陳',
+        '林',
+        '黃',
+        '周',
+        '吳',
+        '徐',
+        '朱',
+        '馬',
+        '胡',
+        '郭',
+        '何',
+        '高'
     ];
 
     private array $lastNames = [
-        '志明', '美華', '小明', '雅婷', '建國', '淑芬', '俊傑', '麗華', '文雄', '秀英', '偉強', '玉蘭', '明智', '惠美', '國強'
+        '志明',
+        '美華',
+        '小明',
+        '雅婷',
+        '建國',
+        '淑芬',
+        '俊傑',
+        '麗華',
+        '文雄',
+        '秀英',
+        '偉強',
+        '玉蘭',
+        '明智',
+        '惠美',
+        '國強'
     ];
 
     private array $statusWeights = [
@@ -226,7 +263,7 @@ class TestDataSeeder extends Seeder
             ->get();
 
         foreach ($statusCounts as $status) {
-            $this->command->info("  {$status->status}: {$status->count}");
+            $this->command->info("  {$status->status->label()}: {$status->count}");
         }
 
         $today = Order::whereDate('created_at', now());

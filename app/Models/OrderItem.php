@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Traits\HasUlid;
+use App\Observers\OrderItemObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 
+#[ObservedBy([OrderItemObserver::class])]
 class OrderItem extends Model
 {
     use HasUlid;
@@ -34,16 +37,5 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
-    }
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($item) {
-            if (!isset($item->subtotal)) {
-                $item->subtotal = $item->quantity * $item->unit_price;
-            }
-        });
     }
 }

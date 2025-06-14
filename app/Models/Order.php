@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use App\Traits\HasUlid;
+use App\Enums\OrderStatusEnum;
+use App\Observers\OrderObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 
+#[ObservedBy([OrderObserver::class])]
 class Order extends Model
 {
     use HasUlid;
@@ -20,8 +24,9 @@ class Order extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
-        'status' => 'string',
+        'status' => OrderStatusEnum::class,
     ];
+
 
     public function user(): BelongsTo
     {
