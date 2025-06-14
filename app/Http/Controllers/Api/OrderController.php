@@ -30,7 +30,7 @@ class OrderController extends Controller
                 orderDirection: $request->get('order_direction', 'desc'),
                 relationships: ['orderItems', 'orderItems.product'],
                 columns: ['*'],
-                filters: []
+                filters: $request->get('filters', [])
             );
 
             return response()->json($orders);
