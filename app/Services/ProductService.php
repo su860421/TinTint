@@ -9,7 +9,7 @@ use App\Models\Product;
 class ProductService extends BaseService implements ProductServiceInterface
 {
     public function __construct(
-        protected ProductRepositoryInterface $repository
+        ProductRepositoryInterface $repository
     ) {
         parent::__construct($repository);
     }

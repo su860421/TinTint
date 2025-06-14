@@ -10,7 +10,7 @@ use Exception;
 class OrderService extends BaseService implements OrderServiceInterface
 {
     public function __construct(
-        protected OrderRepositoryInterface $repository
+        OrderRepositoryInterface $repository
     ) {
         parent::__construct($repository);
     }
