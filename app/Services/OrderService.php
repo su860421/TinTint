@@ -6,12 +6,15 @@ use App\Contracts\Services\OrderServiceInterface;
 use App\Contracts\Repositories\OrderRepositoryInterface;
 use App\Enums\OrderStatusEnum;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * @property-read OrderRepositoryInterface $repository
+ */
 class OrderService extends BaseService implements OrderServiceInterface
 {
-    public function __construct(
-        OrderRepositoryInterface $repository
-    ) {
+    public function __construct(OrderRepositoryInterface $repository)
+    {
         parent::__construct($repository);
     }
 
@@ -67,6 +70,10 @@ class OrderService extends BaseService implements OrderServiceInterface
      */
     public function getOrderStats(): array
     {
-        return $this->repository->getStats();
+        try {
+            return $this->repository->getStats();
+        } catch (Exception $e) {
+            throw $e;
+        }
     }
 }

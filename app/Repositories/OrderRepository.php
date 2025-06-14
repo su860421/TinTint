@@ -10,6 +10,8 @@ use App\Enums\OrderStatusEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 class OrderRepository extends BaseRepository implements OrderRepositoryInterface
 {
     public const ORDER_STATS_CACHE_KEY = 'order:stats';
@@ -36,6 +38,7 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
             }
 
             $order->update(['total_amount' => $totalAmount]);
+            $this->clearStatsCache();
             return $order->fresh(['orderItems', 'orderItems.product']);
         });
     }
@@ -43,46 +46,55 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function updateStatus(string $id, OrderStatusEnum $status): bool
     {
         $order = $this->find($id);
-        return $order->update(['status' => $status->value]);
+        $updated = $order->update(['status' => $status->value]);
+        if ($updated) {
+            $this->clearStatsCache();
+        }
+        return $updated;
     }
 
-    /**
-     * Get order statistics excluding cancelled and refunded orders
-     * 
-     * @return array{
-     *  total_orders: int,
-     *  total_amount: float,
-     *  today_orders: int,
-     *  today_amount: float
-     * }
-     */
     public function getStats(): array
     {
-        return Cache::remember(self::ORDER_STATS_CACHE_KEY, now()->endOfDay(), function (): array {
-            $stats = $this->model
-                ->select([
-                    'status',
-                    'created_at',
-                    'total_amount'
-                ])
-                ->whereNotIn('status', ['cancelled', 'refunded'])
-                ->get()
-                ->groupBy(function ($order) {
-                    return $order->created_at->isToday() ? 'today' : 'other';
-                })
-                ->pipe(function ($grouped) {
-                    $today = $grouped->get('today', collect());
-                    $all = $grouped->flatten();
-                    
-                    return [
-                        'total_orders' => $all->count(),
-                        'total_amount' => (float) $all->sum('total_amount'),
-                        'today_orders' => $today->count(),
-                        'today_amount' => (float) $today->sum('total_amount')
-                    ];
-                });
+        try {
+            return Cache::remember(self::ORDER_STATS_CACHE_KEY, now()->endOfDay(), function (): array {
+                $stats = $this->model
+                    ->select([
+                        'status',
+                        'created_at',
+                        'total_amount'
+                    ])
+                    ->whereNotIn('status', ['cancelled', 'refunded'])
+                    ->get()
+                    ->groupBy(function ($order) {
+                        return $order->created_at->isToday() ? 'today' : 'other';
+                    })
+                    ->pipe(function ($grouped) {
+                        $today = $grouped->get('today', collect());
+                        $all = $grouped->flatten();
 
-            return $stats;
-        });
+                        return [
+                            'total_orders' => $all->count(),
+                            'total_amount' => (float) $all->sum('total_amount'),
+                            'today_orders' => $today->count(),
+                            'today_amount' => (float) $today->sum('total_amount')
+                        ];
+                    });
+
+                return $stats;
+            });
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
+
+    protected function clearStatsCache(): void
+    {
+        try {
+            Cache::forget(self::ORDER_STATS_CACHE_KEY);
+        } catch (\Exception $e) {
+            Log::error('Error clearing stats cache', [
+                'message' => $e->getMessage()
+            ]);
+        }
     }
 }

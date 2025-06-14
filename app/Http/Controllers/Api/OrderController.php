@@ -17,9 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
 class OrderController extends Controller
 {
     public function __construct(
-        private readonly OrderServiceInterface $orderService
-    ) {
-    }
+        private OrderServiceInterface $orderService
+    ) {}
 
     public function index(OrderIndexRequest $request): JsonResponse
     {

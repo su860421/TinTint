@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Enums\OrderStatusEnum;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Uid\Ulid;
 
 class TestDataSeeder extends Seeder
 {
@@ -101,14 +102,134 @@ class TestDataSeeder extends Seeder
         $this->command->info('開始清空資料...');
         $this->truncateTables();
 
+        // 1. 生成用戶數據
         $this->command->info('開始生成用戶數據...');
-        $users = $this->generateUsers();
+        $userUlids = $this->generateUlids(200);
+        $userCount = 0;
+        foreach (array_chunk($userUlids, 50) as $batchUlids) {
+            $userData = [];
+            foreach ($batchUlids as $ulid) {
+                $userCount++;
+                $firstName = $this->firstNames[array_rand($this->firstNames)];
+                $lastName = $this->lastNames[array_rand($this->lastNames)];
+                $userData[] = [
+                    'id' => $ulid,
+                    'name' => $firstName . $lastName,
+                    'email' => "user{$userCount}@example.com",
+                    'password' => bcrypt('password'),
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
+            }
+            DB::table('users')->insert($userData);
+        }
+        $this->command->info('已生成200個用戶');
 
+        // 2. 生成商品數據
         $this->command->info('開始生成商品數據...');
-        $products = $this->generateProducts();
+        $productUlids = $this->generateUlids(100);
+        $productData = [];
 
+        foreach ($this->predefinedProducts as $index => [$name, $price, $stock]) {
+            $productData[] = [
+                'id' => $productUlids[$index],
+                'name' => $name,
+                'price' => $price,
+                'stock' => $stock,
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+        }
+
+        for ($i = count($this->predefinedProducts); $i < 100; $i++) {
+            $category = $this->categories[array_rand($this->categories)];
+            $productData[] = [
+                'id' => $productUlids[$i],
+                'name' => "{$category}商品-{$i}",
+                'price' => rand(100, 10000),
+                'stock' => rand(50, 500),
+                'created_at' => now(),
+                'updated_at' => now()
+            ];
+        }
+
+        DB::table('products')->insert($productData);
+        $this->command->info('已生成100個商品');
+
+        // 3. 關閉模型事件
+        Order::unsetEventDispatcher();
+        OrderItem::unsetEventDispatcher();
+
+        // 4. 獲取用戶和商品數據
+        $users = DB::table('users')->select('id')->get();
+        $products = DB::table('products')->select('id', 'price')->get();
+        $userIds = $users->pluck('id')->toArray();
+
+        // 5. 分批生成訂單
         $this->command->info('開始生成訂單數據...');
-        $this->generateOrders($users, $products);
+        $totalOrders = 1000000;
+        $batchSize = 1000;
+        $startTime = now();
+        $orderIndex = 0;  // 添加全局订单索引
+
+        for ($i = 0; $i < $totalOrders; $i += $batchSize) {
+            $orderUlids = $this->generateUlids($batchSize);
+            $orders = [];
+            $orderItems = [];
+            $currentBatch = min($batchSize, $totalOrders - $i);
+
+            for ($j = 0; $j < $currentBatch; $j++) {
+                $orderIndex++;  // 递增订单索引
+                $itemsCount = rand(1, 3);
+                $selectedProducts = $products->random($itemsCount);
+                $totalAmount = 0;
+                $orderItemUlids = $this->generateUlids($itemsCount);
+                $orderDate = $this->generateOrderDate($i + $j);
+
+                foreach ($selectedProducts as $idx => $product) {
+                    $quantity = rand(1, 3);
+                    $subtotal = $product->price * $quantity;
+                    $totalAmount += $subtotal;
+
+                    $orderItems[] = [
+                        'id' => $orderItemUlids[$idx],
+                        'order_id' => $orderUlids[$j],
+                        'product_id' => $product->id,
+                        'quantity' => $quantity,
+                        'unit_price' => $product->price,
+                        'subtotal' => $subtotal
+                    ];
+                }
+
+                $orders[] = [
+                    'id' => $orderUlids[$j],
+                    'user_id' => $userIds[array_rand($userIds)],
+                    'order_number' => 'ORD' . str_pad($orderIndex, 6, '0', STR_PAD_LEFT),
+                    'status' => $this->getWeightedStatus()->value,
+                    'total_amount' => $totalAmount,
+                    'created_at' => $orderDate,
+                    'updated_at' => $orderDate
+                ];
+            }
+
+            DB::table('orders')->insert($orders);
+            DB::table('order_items')->insert($orderItems);
+
+            if (($i + $batchSize) % 10000 === 0) {
+                $progress = ($i + $batchSize) / $totalOrders * 100;
+                $timeElapsed = now()->diffInSeconds($startTime);
+                $estimatedTotal = ($timeElapsed / ($i + $batchSize)) * $totalOrders;
+                $timeRemaining = $estimatedTotal - $timeElapsed;
+
+                $this->command->info(sprintf(
+                    '進度: %.2f%% (已生成 %d 筆訂單) - 預計剩餘時間: %d 分 %d 秒',
+                    $progress,
+                    $i + $batchSize,
+                    floor($timeRemaining / 60),
+                    $timeRemaining % 60
+                ));
+            }
+        }
 
         $this->showStatistics();
     }
@@ -123,94 +244,13 @@ class TestDataSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS = 1');
     }
 
-    private function generateUsers(): array
+    private function generateUlids(int $count): array
     {
-        $users = [];
-        for ($i = 1; $i <= 200; $i++) {
-            $firstName = $this->firstNames[array_rand($this->firstNames)];
-            $lastName = $this->lastNames[array_rand($this->lastNames)];
-            $name = $firstName . $lastName;
-
-            $users[] = User::create([
-                'name' => $name,
-                'email' => "user{$i}@example.com",
-                'password' => bcrypt('password'),
-            ]);
+        $ulids = [];
+        for ($i = 0; $i < $count; $i++) {
+            $ulids[] = (string) new Ulid();
         }
-        $this->command->info('已生成 200 個用戶');
-        return $users;
-    }
-
-    private function generateProducts(): array
-    {
-        $products = [];
-
-        // 生成預定義商品
-        foreach ($this->predefinedProducts as [$name, $price, $stock]) {
-            $products[] = Product::create([
-                'name' => $name,
-                'price' => $price,
-                'stock' => $stock,
-            ]);
-        }
-
-        // 生成其他商品到達100個
-        for ($i = count($this->predefinedProducts) + 1; $i <= 100; $i++) {
-            $category = $this->categories[array_rand($this->categories)];
-            $products[] = Product::create([
-                'name' => "{$category}商品-{$i}",
-                'price' => rand(100, 10000),
-                'stock' => rand(50, 500),
-            ]);
-        }
-
-        $this->command->info('已生成 100 個商品');
-        return $products;
-    }
-
-    private function generateOrders(array $users, array $products): void
-    {
-        for ($i = 1; $i <= 1000; $i++) {
-            $user = $users[array_rand($users)];
-            $itemsCount = rand(1, 3);
-            $status = $this->getWeightedStatus();
-            $orderDate = $this->generateOrderDate($i);
-
-            $order = Order::create([
-                'user_id' => $user->id,
-                'order_number' => 'ORD' . str_pad($i, 6, '0', STR_PAD_LEFT),
-                'status' => $status->value,
-                'total_amount' => 0,
-                'created_at' => $orderDate,
-                'updated_at' => $orderDate,
-            ]);
-
-            // 選擇不重複的商品
-            $selectedProducts = collect($products)->random($itemsCount);
-            $totalAmount = 0;
-
-            foreach ($selectedProducts as $product) {
-                $quantity = rand(1, 3);
-                $subtotal = $product->price * $quantity;
-                $totalAmount += $subtotal;
-
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $product->id,
-                    'quantity' => $quantity,
-                    'unit_price' => $product->price,
-                    'subtotal' => $subtotal,
-                ]);
-            }
-
-            $order->update(['total_amount' => $totalAmount]);
-
-            if ($i % 100 === 0) {
-                $this->command->info("已生成 {$i} 筆訂單");
-            }
-        }
-
-        $this->command->info('已生成 1000 筆訂單和對應明細');
+        return $ulids;
     }
 
     private function getWeightedStatus(): OrderStatusEnum
@@ -231,11 +271,12 @@ class TestDataSeeder extends Seeder
     private function generateOrderDate(int $orderIndex): string
     {
         // 最後50筆訂單中，30%是今天的
-        if ($orderIndex > 950 && rand(1, 100) <= 30) {
-            $hour = rand(8, 22);
-            $minute = rand(0, 59);
-            $second = rand(0, 59);
-            return now()->format('Y-m-d') . " {$hour}:{$minute}:{$second}";
+        if ($orderIndex > 999950 && rand(1, 100) <= 30) {
+            return now()
+                ->setHour(rand(8, 22))
+                ->setMinute(rand(0, 59))
+                ->setSecond(rand(0, 59))
+                ->format('Y-m-d H:i:s');
         }
 
         // 其他訂單在過去1年內
@@ -251,28 +292,30 @@ class TestDataSeeder extends Seeder
     {
         $this->command->info('=== 測試資料統計 ===');
 
-        $totalOrders = Order::count();
+        $totalOrders = DB::table('orders')->count();
         $this->command->info("總訂單數: {$totalOrders}");
 
-        $totalItems = OrderItem::count();
+        $totalItems = DB::table('order_items')->count();
         $this->command->info("總明細數: {$totalItems}");
 
         $this->command->info('訂單狀態分佈:');
-        $statusCounts = Order::selectRaw('status, count(*) as count')
+        $statusCounts = DB::table('orders')
+            ->select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->get();
 
         foreach ($statusCounts as $status) {
-            $this->command->info("  {$status->status->label()}: {$status->count}");
+            $statusEnum = OrderStatusEnum::from($status->status);
+            $this->command->info("  {$statusEnum->label()}: {$status->count}");
         }
 
-        $today = Order::whereDate('created_at', now());
+        $today = DB::table('orders')->whereDate('created_at', now());
         $todayCount = $today->count();
         $todayAmount = $today->sum('total_amount');
-        $this->command->info("今天訂單: {$todayCount} 筆, 金額: $" . number_format($todayAmount));
+        $this->command->info("今天訂單: {$todayCount} 筆, 金額: $" . number_format($todayAmount, 2));
 
-        $totalAmount = Order::sum('total_amount');
-        $this->command->info("訂單總金額: $" . number_format($totalAmount));
+        $totalAmount = DB::table('orders')->sum('total_amount');
+        $this->command->info("訂單總金額: $" . number_format($totalAmount, 2));
 
         $this->command->info("\n測試資料生成完成！可以開始測試 API 了。");
     }
