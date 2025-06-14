@@ -56,34 +56,42 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function getStats(): array
     {
         try {
-            return Cache::remember(self::ORDER_STATS_CACHE_KEY, now()->endOfDay(), function (): array {
-                $stats = $this->model
-                    ->select([
-                        'status',
-                        'created_at',
-                        'total_amount'
-                    ])
-                    ->whereNotIn('status', ['cancelled', 'refunded'])
-                    ->get()
-                    ->groupBy(function ($order) {
-                        return $order->created_at->isToday() ? 'today' : 'other';
-                    })
-                    ->pipe(function ($grouped) {
-                        $today = $grouped->get('today', collect());
-                        $all = $grouped->flatten();
+            return Cache::remember(
+                self::ORDER_STATS_CACHE_KEY,
+                now()->endOfDay(),
+                function (): array {
+                    $stats = $this->model
+                        ->select([
+                            'created_at',
+                            'total_amount'
+                        ])
+                        ->whereNotIn('status', [OrderStatusEnum::CANCELLED->value])
+                        ->get()
+                        ->groupBy(function ($order) {
+                            return $order->created_at->isToday() ? 'today' : 'other';
+                        })
+                        ->pipe(function ($grouped) {
+                            $today = $grouped->get('today', collect());
+                            $all = $grouped->flatten();
 
-                        return [
-                            'total_orders' => $all->count(),
-                            'total_amount' => (float) $all->sum('total_amount'),
-                            'today_orders' => $today->count(),
-                            'today_amount' => (float) $today->sum('total_amount')
-                        ];
-                    });
+                            return [
+                                'total_orders' => $all->count(),
+                                'total_amount' => (float) $all->sum('total_amount'),
+                                'today_orders' => $today->count(),
+                                'today_amount' => (float) $today->sum('total_amount')
+                            ];
+                        });
 
-                return $stats;
-            });
+                    return $stats;
+                }
+            );
         } catch (\Exception $e) {
-            throw $e;
+            return [
+                'total_orders' => 0,
+                'total_amount' => 0.0,
+                'today_orders' => 0,
+                'today_amount' => 0.0,
+            ];
         }
     }
 
