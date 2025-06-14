@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Products\ProductIndexRequest;
 use App\Contracts\Services\ProductServiceInterface;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -17,10 +18,18 @@ class ProductController extends Controller
     ) {
     }
 
-    public function index(): JsonResponse
+    public function index(ProductIndexRequest $request): JsonResponse
     {
         try {
-            $products = $this->productService->getAvailableProducts();
+            $products = $this->productService->index(
+                perPage: $request->get('per_page', 20),
+                orderBy: $request->get('order_by', 'created_at'),
+                orderDirection: $request->get('order_direction', 'desc'),
+                relationships: [],
+                columns: ['*'],
+                filters: [['stock', '>', 0]]
+            );
+            
             return response()->json($products);
         } catch (Exception $e) {
             return response()->json(
@@ -33,7 +42,7 @@ class ProductController extends Controller
     public function show(string $id): JsonResponse
     {
         try {
-            $product = $this->productService->getProductWithStock($id);
+            $product = $this->productService->find($id);
             
             if (!$product) {
                 return response()->json(

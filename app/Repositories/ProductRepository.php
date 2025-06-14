@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repositories;
 
-use App\Models\Product;
 use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
 class ProductRepository extends BaseRepository implements ProductRepositoryInterface
@@ -13,40 +15,32 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
         parent::__construct($model);
     }
 
-    public function updateStock(string $id, int $quantity)
+    public function findWithStock(string $id)
     {
-        return DB::transaction(function () use ($id, $quantity) {
-            $product = $this->findWithStock($id);
-            if (!$product) {
-                return false;
-            }
-
-            $newStock = $product->stock + $quantity;
-            if ($newStock < 0) {
-                return false;
-            }
-
-            return $product->update(['stock' => $newStock]);
-        });
-    }
-
-    public function checkStock(string $id, int $quantity): bool
-    {
-        $product = $this->findWithStock($id);
-        if (!$product) {
-            return false;
-        }
-
-        return $product->stock >= $quantity;
+        return $this->find($id, ['*']);
     }
 
     public function getActiveProducts()
     {
-        return $this->model->where('stock', '>', 0)->get();
+        return $this->index(
+            perPage: 0,
+            filters: [['stock', '>', 0]]
+        );
     }
 
-    public function findWithStock(string $id)
+    public function updateStock(string $id, int $quantity): bool
     {
-        return $this->model->select('id', 'name', 'price', 'stock')->find($id);
+        return DB::transaction(function () use ($id, $quantity) {
+            $product = $this->find($id);
+            
+            if ($quantity < 0) {
+                if ($product->stock < abs($quantity)) {
+                    return false;
+                }
+                return $product->decrement('stock', abs($quantity));
+            }
+            
+            return $product->increment('stock', $quantity);
+        });
     }
 }

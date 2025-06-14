@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Orders\OrderIndexRequest;
 use App\Http\Requests\CreateOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Contracts\Services\OrderServiceInterface;
 use App\Enums\OrderStatusEnum;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class OrderController extends Controller
@@ -21,11 +21,17 @@ class OrderController extends Controller
     ) {
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(OrderIndexRequest $request): JsonResponse
     {
         try {
-            $perPage = $request->get('per_page', 20);
-            $orders = $this->orderService->getPaginated($perPage);
+            $orders = $this->orderService->index(
+                perPage: $request->get('per_page', 20),
+                orderBy: $request->get('order_by', 'created_at'),
+                orderDirection: $request->get('order_direction', 'desc'),
+                relationships: ['orderItems', 'orderItems.product'],
+                columns: ['*'],
+                filters: []
+            );
 
             return response()->json($orders);
         } catch (Exception $e) {
@@ -39,7 +45,7 @@ class OrderController extends Controller
     public function show(string $id): JsonResponse
     {
         try {
-            $order = $this->orderService->getOrderWithDetails($id);
+            $order = $this->orderService->find($id);
 
             if (!$order) {
                 return response()->json(
@@ -83,7 +89,7 @@ class OrderController extends Controller
                 );
             }
 
-            $order = $this->orderService->getOrderWithDetails($id);
+            $order = $this->orderService->find($id);
             return response()->json($order);
         } catch (Exception $e) {
             return response()->json(
