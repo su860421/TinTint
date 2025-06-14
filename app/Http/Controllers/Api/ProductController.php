@@ -27,7 +27,7 @@ class ProductController extends Controller
                 orderDirection: $request->get('order_direction', 'desc'),
                 relationships: [],
                 columns: ['*'],
-                filters: [['stock', '>', 0]]
+                filters: $request->get('filters', [])
             );
             
             return response()->json($products);
